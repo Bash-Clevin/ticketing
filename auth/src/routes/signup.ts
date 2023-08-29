@@ -1,6 +1,8 @@
 import express, { Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { RequestValidationError } from '../errors/requestValidationError';
+import { User } from '../models/user';
+import { BadRequestError } from '../errors/badRequestError';
 
 const router = express.Router();
 
@@ -13,12 +15,26 @@ router.post(
       .isLength({ min: 4, max: 20 })
       .withMessage('Password must be > 4 chars'),
   ],
-  (req: Request, res: Response) => {
+  async (req: Request, res: Response) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       throw new RequestValidationError(errors.array());
     }
-    res.send({});
+
+    const { email, password } = req.body;
+    const exisingUser = await User.findOne({ email });
+    if (exisingUser) {
+      throw new BadRequestError('Email in use');
+    }
+
+    const user = User.build({
+      email: email,
+      password: password,
+    });
+
+    await user.save();
+
+    res.status(201).send(user);
   },
 );
 
